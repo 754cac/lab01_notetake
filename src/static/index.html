@@ -185,9 +185,16 @@
             color: white;
         }
 
-        .btn-save:hover {
+        .btn-save:hover:not(:disabled) {
             background: #218838;
             transform: translateY(-1px);
+        }
+
+        .btn-save:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .btn-delete {
@@ -377,6 +384,8 @@
                 this.notes = [];
                 this.currentNote = null;
                 this.isLoading = false;
+                this.originalTitle = '';
+                this.originalContent = '';
                 this.init();
             }
 
@@ -395,6 +404,7 @@
                 let saveTimeout;
                 const autoSave = () => {
                     clearTimeout(saveTimeout);
+                    this.updateSaveButtonState();
                     saveTimeout = setTimeout(() => {
                         if (this.currentNote && this.currentNote.id) {
                             this.saveNote(true);
@@ -453,6 +463,11 @@
                 document.getElementById('noteTitle').value = note.title || '';
                 document.getElementById('noteContent').value = note.content || '';
                 document.getElementById('editorTitle').textContent = note.title || 'Untitled Note';
+                
+                // Store original values to track changes
+                this.originalTitle = note.title || '';
+                this.originalContent = note.content || '';
+                this.updateSaveButtonState();
             }
 
             createNewNote() {
@@ -469,6 +484,11 @@
                 document.getElementById('noteContent').value = '';
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
+                
+                // Store original values (empty for new note)
+                this.originalTitle = '';
+                this.originalContent = '';
+                this.updateSaveButtonState();
                 
                 // Remove active state from all notes
                 document.querySelectorAll('.note-item').forEach(item => {
@@ -488,6 +508,18 @@
                 document.getElementById('editorActions').style.display = 'none';
                 document.getElementById('editorTitle').textContent = 'Select a note to edit';
                 this.currentNote = null;
+            }
+
+            hasChanges() {
+                const currentTitle = document.getElementById('noteTitle').value;
+                const currentContent = document.getElementById('noteContent').value;
+                return currentTitle !== this.originalTitle || currentContent !== this.originalContent;
+            }
+
+            updateSaveButtonState() {
+                const saveBtn = document.getElementById('saveBtn');
+                const hasChanges = this.hasChanges();
+                saveBtn.disabled = !hasChanges;
             }
 
             async saveNote(isAutoSave = false) {
@@ -530,6 +562,11 @@
 
                     const savedNote = await response.json();
                     this.currentNote = savedNote;
+                    
+                    // Update original values after save
+                    this.originalTitle = savedNote.title || '';
+                    this.originalContent = savedNote.content || '';
+                    this.updateSaveButtonState();
                     
                     // Update notes list
                     const existingIndex = this.notes.findIndex(n => n.id === savedNote.id);
