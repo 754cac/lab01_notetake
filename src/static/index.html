@@ -369,6 +369,21 @@
                         <label class="form-label" for="noteContent">Content</label>
                         <textarea class="form-textarea" id="noteContent" placeholder="Start writing your note..."></textarea>
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="noteTags">Tags</label>
+                        <input type="text" class="form-input" id="noteTags" placeholder="tag1, tag2 or JSON array">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="eventStart">Event Start</label>
+                        <input type="datetime-local" class="form-input" id="eventStart">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="eventEnd">Event End</label>
+                        <input type="datetime-local" class="form-input" id="eventEnd">
+                    </div>
                 </div>
 
                 <div class="empty-state" id="emptyState">
@@ -412,9 +427,12 @@
                         }
                     }, 2000);
                 };
-                
-                document.getElementById('noteTitle').addEventListener('input', autoSave);
-                document.getElementById('noteContent').addEventListener('input', autoSave);
+
+                // inputs that should trigger auto-save
+                ['noteTitle', 'noteContent', 'noteTags', 'eventStart', 'eventEnd'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('input', autoSave);
+                });
             }
 
             async loadNotes() {
@@ -463,15 +481,29 @@
                 
                 document.getElementById('noteTitle').value = note.title || '';
                 document.getElementById('noteContent').value = note.content || '';
+                // populate tags (array expected)
+                const tagsInput = document.getElementById('noteTags');
+                if (tagsInput) {
+                    if (Array.isArray(note.tags)) tagsInput.value = note.tags.join(', ');
+                    else if (note.tags) tagsInput.value = (note.tags || '').toString();
+                    else tagsInput.value = '';
+                }
+
+                // populate event datetimes into datetime-local inputs (localize)
+                const es = document.getElementById('eventStart');
+                const ee = document.getElementById('eventEnd');
+                const toLocalInput = (iso) => {
+                    if (!iso) return '';
+                    const d = new Date(iso);
+                    const tzOffset = d.getTimezoneOffset();
+                    const local = new Date(d.getTime() - tzOffset * 60000);
+                    return local.toISOString().slice(0,16);
+                };
+                if (es) es.value = note.event_start_date ? toLocalInput(note.event_start_date) : '';
+                if (ee) ee.value = note.event_end_date ? toLocalInput(note.event_end_date) : '';
                 document.getElementById('editorTitle').textContent = note.title || 'Untitled Note';
-                
-                // Store original values to track changes
-                this.originalTitle = note.title || '';
-                this.originalContent = note.content || '';
-                this.updateSaveButtonState();
-                
-                // Show delete button for existing notes
-                document.getElementById('deleteBtn').style.display = 'block';
+                // show delete for existing notes
+                document.getElementById('deleteBtn').style.display = note.id ? 'inline-flex' : 'none';
             }
 
             createNewNote() {
@@ -486,6 +518,10 @@
                 this.showEditor();
                 document.getElementById('noteTitle').value = '';
                 document.getElementById('noteContent').value = '';
+                // clear new fields
+                if (document.getElementById('noteTags')) document.getElementById('noteTags').value = '';
+                if (document.getElementById('eventStart')) document.getElementById('eventStart').value = '';
+                if (document.getElementById('eventEnd')) document.getElementById('eventEnd').value = '';
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
                 
@@ -501,6 +537,8 @@
                 document.querySelectorAll('.note-item').forEach(item => {
                     item.classList.remove('active');
                 });
+                // hide delete for new note
+                document.getElementById('deleteBtn').style.display = 'none';
             }
 
             showEditor() {
@@ -547,6 +585,24 @@
                         title: title || 'Untitled',
                         content: content
                     };
+
+                    // tags: allow JSON or comma-separated
+                    const tagsRaw = document.getElementById('noteTags') ? document.getElementById('noteTags').value.trim() : '';
+                    if (tagsRaw) {
+                        try {
+                            const parsed = JSON.parse(tagsRaw);
+                            if (Array.isArray(parsed)) noteData.tags = parsed;
+                            else noteData.tags = tagsRaw.split(',').map(s=>s.trim()).filter(Boolean);
+                        } catch (e) {
+                            noteData.tags = tagsRaw.split(',').map(s=>s.trim()).filter(Boolean);
+                        }
+                    }
+
+                    // event datetimes (datetime-local -> ISO)
+                    const esVal = document.getElementById('eventStart') ? document.getElementById('eventStart').value : '';
+                    const eeVal = document.getElementById('eventEnd') ? document.getElementById('eventEnd').value : '';
+                    if (esVal) noteData.event_start_date = new Date(esVal).toISOString();
+                    if (eeVal) noteData.event_end_date = new Date(eeVal).toISOString();
 
                     let response;
                     if (this.currentNote.id) {
