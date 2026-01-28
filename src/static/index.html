@@ -468,6 +468,9 @@
                 this.originalTitle = note.title || '';
                 this.originalContent = note.content || '';
                 this.updateSaveButtonState();
+                
+                // Show delete button for existing notes
+                document.getElementById('deleteBtn').style.display = 'block';
             }
 
             createNewNote() {
@@ -489,6 +492,9 @@
                 this.originalTitle = '';
                 this.originalContent = '';
                 this.updateSaveButtonState();
+                
+                // Hide delete button for new notes
+                document.getElementById('deleteBtn').style.display = 'none';
                 
                 // Remove active state from all notes
                 document.querySelectorAll('.note-item').forEach(item => {
